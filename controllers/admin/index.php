@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /**
 * 2007-2014 PrestaShop
 *

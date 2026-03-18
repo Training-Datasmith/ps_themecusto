@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 global $_MODULE;
 $_MODULE = [];
 $_MODULE['<{ps_themecusto}prestashop>ps_themecusto_95db0d5190e9cdbed521ecf6ea2373ca'] = 'Personalizzazione del template grafico';

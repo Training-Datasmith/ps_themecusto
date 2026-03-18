@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /**
 * 2007-2018 PrestaShop
 *
@@ -437,32 +439,32 @@ class AdminPsThemeCustoConfigurationController extends ModuleAdminController
             case 'uninstall':
                 $oModule->uninstall();
                 $sUrlActive = 'install';
-            break;
+                break;
             case 'install':
                 $oModule->install();
                 $sUrlActive = method_exists($oModule, 'getContent') ? 'configure' : 'disable';
-            break;
+                break;
             case 'enable':
                 $oModule->enable();
                 $sUrlActive = method_exists($oModule, 'getContent') ? 'configure' : 'disable';
-            break;
+                break;
             case 'disable':
                 $oModule->disable();
                 $sUrlActive = 'enable';
-            break;
+                break;
             case 'disable_mobile':
                 $oModule->disableDevice(Context::DEVICE_MOBILE);
                 $sUrlActive = method_exists($oModule, 'getContent') ? 'configure' : 'disable';
-            break;
+                break;
             case 'enable_mobile':
                 $oModule->enableDevice(Context::DEVICE_MOBILE);
                 $sUrlActive = method_exists($oModule, 'getContent') ? 'configure' : 'disable';
-            break;
+                break;
             case 'reset':
                 $oModule->uninstall();
                 $oModule->install();
                 $sUrlActive = method_exists($oModule, 'getContent') ? 'configure' : 'disable';
-            break;
+                break;
             default:
                 exit(0);
         }
