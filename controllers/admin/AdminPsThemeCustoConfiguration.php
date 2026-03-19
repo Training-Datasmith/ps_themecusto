@@ -431,6 +431,9 @@ class AdminPsThemeCustoConfigurationController extends ModuleAdminController
         }
 
         $sModuleName = pSQL(Tools::getValue('module_name'));
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $sModuleName)) {
+            exit($this->trans('Invalid module name.', [], 'Modules.PsThemeCusto.Admin'));
+        }
         $sModuleAction = pSQL(Tools::getValue('action_module'));
         $oModule = Module::getInstanceByName($sModuleName);
         $sUrlActive = $oModule->isEnabled($oModule->name) ? 'configure' : 'enable';
