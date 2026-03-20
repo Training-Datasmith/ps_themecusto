@@ -79,7 +79,9 @@ class ps_themecusto extends Module
     }
 
     /**
-     * @return bool
+     * Installs the module and registers its admin tabs in the back-office menu.
+     *
+     * @return bool True on success, false on failure
      */
     public function install()
     {
@@ -93,7 +95,9 @@ class ps_themecusto extends Module
     }
 
     /**
-     * @return bool
+     * Uninstalls the module and removes its admin tabs from the back-office menu.
+     *
+     * @return bool True on success, false on failure
      */
     public function uninstall()
     {
@@ -108,7 +112,9 @@ class ps_themecusto extends Module
     }
 
     /**
-     * Assign all sub menu on Admin tab variable
+     * Returns the list of admin tab definitions to register under the Themes menu.
+     *
+     * @return array<int, array{class: string, active: bool, position: int, id_parent: int, module: string}>
      */
     public function assignTabList()
     {
@@ -133,7 +139,9 @@ class ps_themecusto extends Module
     }
 
     /**
-     * Get all tab names by lang ISO
+     * Returns localised tab label strings keyed by controller class name and language ISO code.
+     *
+     * @return array<string, array<string, string>> Map of controller name → ISO code → label
      */
     public function getTabNameByLangISO()
     {
@@ -241,7 +249,13 @@ class ps_themecusto extends Module
     }
 
     /**
-     * set JS and CSS media
+     * Registers JS definitions, stylesheets, and scripts for the theme customisation back-office pages.
+     *
+     * @param array $aJsDef JavaScript inline definitions to pass to Media::addJsDef()
+     * @param array $aJs    JavaScript file paths to enqueue
+     * @param array $aCss   Stylesheet file paths to enqueue
+     *
+     * @return void
      */
     public function setMedia($aJsDef, $aJs, $aCss)
     {
