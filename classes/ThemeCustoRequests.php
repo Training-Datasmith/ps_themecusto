@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare (strict_types=1);
 /**
 * 2007-2018 PrestaShop
 *
@@ -25,7 +25,7 @@ declare(strict_types=1);
 * @license http://opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
 * International Registered Trademark & Property of PrestaShop SA
 **/
-class ThemeCustoRequests
+class Theme_Custo_Requests
 {
     /**
      * Get all the modules by name
@@ -34,16 +34,14 @@ class ThemeCustoRequests
      *
      * @return array|false|PDOStatement|resource|null
      */
-    public static function getModulesListByName($moduleName)
+    public static function get_modules_list_by_name($module_name)
     {
-        $sqlQuery = '   SELECT m.id_module, m.name, ms.enable_device as active
+        $sql_query = '   SELECT m.id_module, m.name, ms.enable_device as active
                     FROM `' . _DB_PREFIX_ . 'module` m
                     LEFT JOIN `' . _DB_PREFIX_ . 'module_shop` ms ON m.id_module = ms.id_module
-                    WHERE m.name = "' . pSQL($moduleName) . '"';
-
-        return Db::getInstance()->executeS($sqlQuery);
+                    WHERE m.name = "' . p_sql($module_name) . '"';
+        return Db::get_instance()->execute_s($sql_query);
     }
-
     /**
      * Get the device status of a module
      *
@@ -51,12 +49,11 @@ class ThemeCustoRequests
      *
      * @return string|false|null
      */
-    public static function getModuleDeviceStatus($moduleId)
+    public static function get_module_device_status($module_id)
     {
-        $sqlQuery = '   SELECT ms.enable_device as active
+        $sql_query = '   SELECT ms.enable_device as active
                         FROM `' . _DB_PREFIX_ . 'module_shop` ms
-                        WHERE ms.id_module = ' . (int) $moduleId;
-
-        return Db::getInstance()->getValue($sqlQuery);
+                        WHERE ms.id_module = ' . (int) $module_id;
+        return Db::get_instance()->get_value($sql_query);
     }
 }
