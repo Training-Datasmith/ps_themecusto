@@ -34,7 +34,6 @@ abstract class PsThemeCustoTestCase extends PHPUnit_Framework_TestCase
         Context::reset();
         Shop::$contextShopId = 1;
         Tools::$secureMode = false;
-        Tools::$fileAttachmentNonArrayPayload = null;
         Media::reset();
         Module::resetInstances();
         Tab::resetStaticCache();

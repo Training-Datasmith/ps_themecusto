@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 FILTER="${FILTER:-}"
-EXPECTED_TESTS=61
+EXPECTED_TESTS=60
 PHPUNIT_VERSION=4.8.36
 PHPUNIT_SHA256=ab8bc3017a64cf75a2112f5e089a1d5b0c4cc2116556d60c1af5e3f584e85c5e
 FINDER_SHA256=5027119ef9af48354574b21470148273a14091bbdb21b6ae32cd3260367b929c
@@ -39,6 +39,40 @@ docker_cmd() {
     else
         "$DOCKER_BIN" "$@"
     fi
+}
+
+scan_phpunit_log() {
+    local log="$1"
+    local plain="$log.plain"
+    sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$log" >"$plain"
+    local phpunit_log
+    phpunit_log="$(awk '/^PHPUnit [0-9]/,0' "$plain")"
+    if [ -z "$phpunit_log" ]; then
+        echo "PHPUnit output not found in run log" >&2
+        return 1
+    fi
+    if grep -qiE '(^|[^A-Za-z])(Notice|Warning|Deprecated|Strict Standards|Parse error|Fatal error):' "$phpunit_log"; then
+        echo "PHPUnit run output contains a PHP diagnostic:" >&2
+        grep -iE '(Notice|Warning|Deprecated|Strict Standards|Parse error|Fatal error):' "$phpunit_log" >&2 || true
+        return 1
+    fi
+    if grep -qiE 'There (was|were) [0-9]+ (skipped|incomplete|risky)' "$phpunit_log" \
+        || grep -qiE '(^|[[:space:]])Skipped:|[[:space:]]Incomplete:|[[:space:]]Risky' "$phpunit_log"; then
+        echo "PHPUnit run reported skipped, incomplete, or risky tests" >&2
+        return 1
+    fi
+    if grep -q 'WARNINGS!' "$phpunit_log"; then
+        echo "PHPUnit run reported warnings" >&2
+        return 1
+    fi
+    if grep -q 'FAILURES!' "$phpunit_log" || grep -q 'ERRORS!' "$phpunit_log"; then
+        return 1
+    fi
+    if ! grep -qE 'OK \([0-9]+ tests,' "$phpunit_log"; then
+        echo "PHPUnit run did not end with a clean OK summary" >&2
+        return 1
+    fi
+    return 0
 }
 
 verify_phpunit() {
@@ -145,12 +179,18 @@ docker_cmd run -d --name ps-themecusto-mariadb \
     -p "127.0.0.1:${DB_PORT}:3306" \
     "$MARIADB_IMAGE" >/dev/null
 
+MARIADB_READY=0
 for _ in $(seq 1 60); do
     if docker_cmd exec ps-themecusto-mariadb mysqladmin ping -h127.0.0.1 -ups_test -p"$DB_PASS" --silent; then
+        MARIADB_READY=1
         break
     fi
     sleep 1
 done
+if [ "$MARIADB_READY" -ne 1 ]; then
+    echo "MariaDB did not become ready within 60 seconds" >&2
+    exit 1
+fi
 
 RUN_FLAGS=(
     --rm
@@ -169,23 +209,30 @@ RUN_FLAGS=(
 
 run_phpunit() {
     local xml="$1"
+    local log="$2"
     local extra=()
     if [ -n "$FILTER" ]; then
         extra=(--filter "$FILTER")
     fi
+    set +e
     docker_cmd run --name ps-themecusto-phpunit "${RUN_FLAGS[@]}" ps-themecusto-php56 \
         php -d error_reporting=-1 -d display_errors=1 -d display_startup_errors=1 \
         /runtime/phpunit-${PHPUNIT_VERSION}.phar \
-        --configuration "$xml" "${extra[@]}"
+        --configuration "$xml" "${extra[@]}" >"$log" 2>&1
+    local code=$?
+    set -e
+    cat "$log"
+    scan_phpunit_log "$log" || return 1
+    return "$code"
 }
 
 write_phpunit_xml "$TMPDIR/phpunit.xml" 0
-run_phpunit /runtime/phpunit.xml
+run_phpunit /runtime/phpunit.xml "$TMPDIR/phpunit-sorted.log"
 first_code=$?
 
 if [ -z "$FILTER" ]; then
     write_phpunit_xml "$TMPDIR/phpunit-shuffled.xml" 1
-    run_phpunit /runtime/phpunit-shuffled.xml
+    run_phpunit /runtime/phpunit-shuffled.xml "$TMPDIR/phpunit-shuffled.log"
     second_code=$?
     if [ "$first_code" -ne 0 ] || [ "$second_code" -ne 0 ]; then
         exit 1

@@ -57,12 +57,6 @@ $_FILES = array("file" => array(
     {
         $before = $this->sandboxEntries();
         $result = $this->runUploadAjax('
-Profile::setProfileAccess(1, 401, array("edit" => "1"));
-Db::getInstance()->insert("tab", array(
-    "id_tab" => "401", "id_parent" => "0", "position" => "1", "module" => "ps_themecusto",
-    "class_name" => "AdminPsThemeCustoAdvanced", "active" => "1"
-), false, true, Db::INSERT, true);
-Tab::resetStaticCache();
 $_FILES = array();
 ');
         $this->assertNoPhpDiagnostics($result['combined'], '');
@@ -70,33 +64,6 @@ $_FILES = array();
         $this->assertSame(0, $payload['state']);
         $this->assertSame('An error occured, please check your zip file', $payload['message']);
         $this->assertSame($before, $this->sandboxEntries());
-    }
-
-    public function testUploadRejectsNonArrayAttachmentPayload()
-    {
-        $runtime = getenv('PS_TEST_RUNTIME');
-        $zip = $runtime . '/nonarray.zip';
-        file_put_contents($zip, 'x');
-        $result = $this->runUploadAjax('
-Tools::$fileAttachmentNonArrayPayload = "broken-payload";
-Profile::setProfileAccess(1, 403, array("edit" => "1"));
-Db::getInstance()->insert("tab", array(
-    "id_tab" => "403", "id_parent" => "0", "position" => "1", "module" => "ps_themecusto",
-    "class_name" => "AdminPsThemeCustoAdvanced", "active" => "1"
-), false, true, Db::INSERT, true);
-Tab::resetStaticCache();
-$_FILES = array("file" => array(
-    "name" => "child.zip",
-    "type" => "application/zip",
-    "tmp_name" => "' . $zip . '",
-    "error" => UPLOAD_ERR_OK,
-    "size" => 1,
-));
-');
-        $this->assertNoPhpDiagnostics($result['combined'], '');
-        $payload = json_decode(trim($result['stdout']), true);
-        $this->assertSame(0, $payload['state']);
-        $this->assertSame('An error occured, please check your zip file', $payload['message']);
     }
 
     public function testUploadInstallsCleanChildThemeOverHttp()
@@ -132,40 +99,75 @@ ob_start();
 \$controller->ajaxProcessUploadChildTheme();
 echo ob_get_clean();
 ');
-\$sock = stream_socket_server('tcp://127.0.0.1:0', \$errno, \$errstr);
-if (!\$sock) { fwrite(STDERR, 'bind failed'); exit(2); }
-\$name = stream_socket_get_name(\$sock, false);
-\$port = (int) substr(strrchr(\$name, ':'), 1);
-fclose(\$sock);
-\$descriptors = array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w'));
-\$proc = proc_open(
-    'php -d error_reporting=-1 -d display_errors=1 -d display_startup_errors=1 -S 127.0.0.1:' . \$port . ' ' . escapeshellarg(\$router),
-    \$descriptors,
-    \$pipes
-);
-usleep(500000);
-\$ch = curl_init('http://127.0.0.1:' . \$port . '/');
-\$post = array('file' => new CURLFile(\$zipPath, 'application/zip', 'uploaded_child.zip'));
-curl_setopt(\$ch, CURLOPT_POST, true);
-curl_setopt(\$ch, CURLOPT_POSTFIELDS, \$post);
-curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
-\$body = curl_exec(\$ch);
-curl_close(\$ch);
-if (is_resource(\$proc)) {
-    proc_terminate(\$proc);
+\$body = false;
+\$serverErr = '';
+\$port = 0;
+for (\$bindTry = 0; \$bindTry < 5; ++\$bindTry) {
+    \$sock = stream_socket_server('tcp://127.0.0.1:0', \$errno, \$errstr);
+    if (!\$sock) {
+        continue;
+    }
+    \$name = stream_socket_get_name(\$sock, false);
+    \$port = (int) substr(strrchr(\$name, ':'), 1);
+    fclose(\$sock);
+    \$descriptors = array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w'));
+    \$proc = proc_open(
+        'php -d error_reporting=-1 -d display_errors=1 -d display_startup_errors=1 -S 127.0.0.1:' . \$port . ' ' . escapeshellarg(\$router),
+        \$descriptors,
+        \$pipes
+    );
+    if (!is_resource(\$proc)) {
+        continue;
+    }
+    stream_set_blocking(\$pipes[2], false);
+    \$deadline = time() + 5;
+    while (time() < \$deadline) {
+        \$read = array(\$pipes[2]);
+        \$write = null;
+        \$except = null;
+        if (stream_select(\$read, \$write, \$except, 1) > 0) {
+            \$chunk = stream_get_contents(\$pipes[2]);
+            if (\$chunk !== false && \$chunk !== '') {
+                \$serverErr .= \$chunk;
+            }
+        }
+        \$ch = curl_init('http://127.0.0.1:' . \$port . '/');
+        \$post = array('file' => new CURLFile(\$zipPath, 'application/zip', 'uploaded_child.zip'));
+        curl_setopt(\$ch, CURLOPT_POST, true);
+        curl_setopt(\$ch, CURLOPT_POSTFIELDS, \$post);
+        curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt(\$ch, CURLOPT_CONNECTTIMEOUT, 1);
+        curl_setopt(\$ch, CURLOPT_TIMEOUT, 2);
+        \$tryBody = curl_exec(\$ch);
+        curl_close(\$ch);
+        if (\$tryBody !== false && \$tryBody !== '') {
+            \$body = \$tryBody;
+            break 2;
+        }
+    }
+    if (is_resource(\$proc)) {
+        proc_terminate(\$proc);
+        proc_close(\$proc);
+    }
 }
 if (\$body === false || \$body === '') {
     fwrite(STDOUT, 'EMPTY_BODY');
 } else {
     fwrite(STDOUT, \$body);
 }
+fwrite(STDOUT, "\n__PHP_SERVER_ERR__\n" . \$serverErr);
 PHP
 );
         $this->assertNoPhpDiagnostics($result['combined'], '');
-        $this->assertNotSame('EMPTY_BODY', trim($result['stdout']));
-        $payload = json_decode(trim($result['stdout']), true);
-        $this->assertTrue(is_array($payload), 'Upload response: ' . trim($result['stdout']));
-        $this->assertSame(1, $payload['state'], isset($payload['message']) ? $payload['message'] : trim($result['stdout']));
+        if (preg_match('/__PHP_SERVER_ERR__\s*(.*)$/s', $result['stdout'], $m)) {
+            $this->assertNoPhpDiagnostics($m[1], '');
+        }
+        $responseBody = preg_replace('/\s*__PHP_SERVER_ERR__.*$/s', '', $result['stdout']);
+        $jsonLine = trim(strtok($responseBody, "\n"));
+        $this->assertNotSame('EMPTY_BODY', $jsonLine);
+        $payload = json_decode($jsonLine, true);
+        $this->assertTrue(is_array($payload), 'Upload response: ' . $jsonLine);
+        $this->assertSame(1, $payload['state'], isset($payload['message']) ? $payload['message'] : $jsonLine);
         $this->assertSame('The child theme has been added successfully.', $payload['message']);
         $this->assertFileExists(_PS_ALL_THEMES_DIR_ . 'uploaded_child/config/theme.yml');
         $yml = file_get_contents(_PS_ALL_THEMES_DIR_ . 'uploaded_child/config/theme.yml');

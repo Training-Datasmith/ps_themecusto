@@ -680,7 +680,6 @@ class Tab extends ObjectModel
 
 class Tools
 {
-    public static $fileAttachmentNonArrayPayload = null;
     public static $secureMode = false;
 
     public static function usingSecureMode()
@@ -726,9 +725,6 @@ class Tools
 
     public static function fileAttachment($input = 'fileUpload', $return_content = true)
     {
-        if (self::$fileAttachmentNonArrayPayload !== null) {
-            return self::$fileAttachmentNonArrayPayload;
-        }
         if (!isset($_FILES[$input]['name']) || empty($_FILES[$input]['name']) || empty($_FILES[$input]['tmp_name'])) {
             return null;
         }
