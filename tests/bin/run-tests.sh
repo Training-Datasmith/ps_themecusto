@@ -51,24 +51,24 @@ scan_phpunit_log() {
         echo "PHPUnit output not found in run log" >&2
         return 1
     fi
-    if grep -qiE '(^|[^A-Za-z])(Notice|Warning|Deprecated|Strict Standards|Parse error|Fatal error):' "$phpunit_log"; then
+    if printf '%s\n' "$phpunit_log" | grep -qiE '(^|[^A-Za-z])(Notice|Warning|Deprecated|Strict Standards|Parse error|Fatal error):'; then
         echo "PHPUnit run output contains a PHP diagnostic:" >&2
-        grep -iE '(Notice|Warning|Deprecated|Strict Standards|Parse error|Fatal error):' "$phpunit_log" >&2 || true
+        printf '%s\n' "$phpunit_log" | grep -iE '(Notice|Warning|Deprecated|Strict Standards|Parse error|Fatal error):' >&2 || true
         return 1
     fi
-    if grep -qiE 'There (was|were) [0-9]+ (skipped|incomplete|risky)' "$phpunit_log" \
-        || grep -qiE '(^|[[:space:]])Skipped:|[[:space:]]Incomplete:|[[:space:]]Risky' "$phpunit_log"; then
+    if printf '%s\n' "$phpunit_log" | grep -qiE 'There (was|were) [0-9]+ (skipped|incomplete|risky)' \
+        || printf '%s\n' "$phpunit_log" | grep -qiE '(^|[[:space:]])Skipped:|[[:space:]]Incomplete:|[[:space:]]Risky'; then
         echo "PHPUnit run reported skipped, incomplete, or risky tests" >&2
         return 1
     fi
-    if grep -q 'WARNINGS!' "$phpunit_log"; then
+    if printf '%s\n' "$phpunit_log" | grep -q 'WARNINGS!'; then
         echo "PHPUnit run reported warnings" >&2
         return 1
     fi
-    if grep -q 'FAILURES!' "$phpunit_log" || grep -q 'ERRORS!' "$phpunit_log"; then
+    if printf '%s\n' "$phpunit_log" | grep -q 'FAILURES!' || printf '%s\n' "$phpunit_log" | grep -q 'ERRORS!'; then
         return 1
     fi
-    if ! grep -qE 'OK \([0-9]+ tests,' "$phpunit_log"; then
+    if ! printf '%s\n' "$phpunit_log" | grep -qE 'OK \([0-9]+ tests,'; then
         echo "PHPUnit run did not end with a clean OK summary" >&2
         return 1
     fi
