@@ -222,8 +222,10 @@ run_phpunit() {
     local code=$?
     set -e
     cat "$log"
-    scan_phpunit_log "$log" || return 1
-    return "$code"
+    if ! scan_phpunit_log "$log"; then
+        return 1
+    fi
+    return $code
 }
 
 write_phpunit_xml "$TMPDIR/phpunit.xml" 0
