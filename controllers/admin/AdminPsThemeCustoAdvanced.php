@@ -205,7 +205,26 @@ class AdminPsThemeCustoAdvancedController extends ModuleAdminController
     public function ajaxProcessUploadChildTheme()
     {
         $aChildThemeReturned = Tools::fileAttachment('file');
+
+        if (!is_array($aChildThemeReturned)) {
+            exit(json_encode([
+                'state' => 0,
+                'message' => $this->trans('An error occured, please check your zip file'),
+            ]));
+        }
+
         $sZipPath = self::processUploadFileChild($aChildThemeReturned, $this->sandbox_path . $aChildThemeReturned['rename']);
+
+        if (!is_string($sZipPath) || !is_file($sZipPath)) {
+            $message = is_string($sZipPath) && $sZipPath !== ''
+                ? $sZipPath
+                : $this->trans('An error occured, please check your zip file');
+            exit(json_encode([
+                'state' => 0,
+                'message' => $message,
+            ]));
+        }
+
         $bZipFormat = self::processCheckZipFormat($sZipPath);
         if (!$bZipFormat) {
             exit(json_encode([
@@ -216,21 +235,29 @@ class AdminPsThemeCustoAdvancedController extends ModuleAdminController
 
         $bUploadIsClean = self::processCheckFiles($sZipPath, $this->sandbox_path . rand());
 
-        if (!$bUploadIsClean) {
+        if ($bUploadIsClean !== true) {
+            $message = is_string($bUploadIsClean) && $bUploadIsClean !== ''
+                ? $bUploadIsClean
+                : $this->trans('There is some PHP files in your ZIP');
             exit(json_encode([
                 'state' => 0,
-                'message' => $this->trans('There is some PHP files in your ZIP'),
+                'message' => $message,
             ]));
         }
 
         /** @var bool|string $sFolderPath */
         $sFolderPath = self::postProcessInstall($sZipPath);
 
-        if ($sFolderPath === false) {
-            @unlink($sZipPath);
+        if (!is_string($sFolderPath) || !is_dir($sFolderPath)) {
+            if (is_string($sZipPath) && is_file($sZipPath)) {
+                @unlink($sZipPath);
+            }
+            $message = is_string($sFolderPath) && $sFolderPath !== ''
+                ? $sFolderPath
+                : $this->trans('The theme already exists or the parent name in the config file is wrong');
             exit(json_encode([
                 'state' => 0,
-                'message' => $this->trans('The theme already exists or the parent name in the config file is wrong'),
+                'message' => $message,
             ]));
         }
 
@@ -469,7 +496,7 @@ class AdminPsThemeCustoAdvancedController extends ModuleAdminController
      */
     private function getDirPhpContents($sZipSource, $sSandboxPath)
     {
-        $sPattern = '#[.\-\/](php)#';
+        $sPattern = '#[.\-\/](php)#i';
         $sIndexPhpFile = Tools::getDefaultIndexContent();
 
         $zip = new ZipArchive();

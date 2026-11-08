@@ -53,7 +53,8 @@ class ThemeCustoRequests
     {
         $sqlQuery = '   SELECT ms.enable_device as active
                         FROM `' . _DB_PREFIX_ . 'module_shop` ms
-                        WHERE ms.id_module = ' . (int) $moduleId;
+                        WHERE ms.id_module = ' . (int) $moduleId . '
+                        AND ms.id_shop = ' . (int) Context::getContext()->shop->id;
 
         return Db::getInstance()->getValue($sqlQuery);
     }
